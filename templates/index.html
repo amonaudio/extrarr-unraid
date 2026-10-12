@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extrarr</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <style>
+        :root {
+            --bg: #1f1f1f; --card: #2b2b2b; --text: #e0e0e0; --border: #444;
+            --orange: #ff8c1f; --green: #27c24c; --blue: #3498db; --red: #ff4d4d;
+        }
+        [data-theme="light"] { --bg: #f0f0f0; --card: #ffffff; --text: #333333; --border: #ccc; }
+        body { background-color: var(--bg); color: var(--text); font-family: sans-serif; margin: 0; padding: 20px 40px 100px 20px; transition: background 0.3s, color 0.3s; }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 20px; gap: 15px; flex-wrap: wrap; }
+        h1 { color: var(--orange); margin: 0; font-size: 1.5rem; display: flex; align-items: center; gap: 10px; }
+        .version { font-size: 0.6rem; background: var(--card); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); color: var(--text); }
+        .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .btn { background: var(--card); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+        .btn:hover { border-color: var(--orange); }
+        .btn-active { background: var(--orange); color: black; border-color: var(--orange); }
+        .select, .input-text { background: var(--card); color: var(--text); border: 1px solid var(--border); padding: 6px; border-radius: 4px; }
+        .stats { color: var(--text); opacity: 0.8; font-size: 0.9rem; margin-top: 10px; width: 100%; text-align: center; }
+        
+        .grid-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; gap: 10px; flex-wrap: wrap; }
+        .count-badge { background: var(--card); border: 1px solid var(--border); padding: 4px 12px; border-radius: 20px; font-size: 0.9rem; color: var(--orange); font-weight: bold; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
+        .card { background-color: var(--card); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; transition: transform 0.2s; position: relative; }
+        .card:hover { transform: scale(1.05); z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .card img { width: 100%; height: auto; aspect-ratio: 2/3; object-fit: cover; display: block; }
+        .card-body { padding: 8px; }
+        .title { font-size: 0.9rem; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .year { font-size: 0.8rem; opacity: 0.7; }
+        
+        .icon-bar { position: absolute; display: flex; gap: 5px; background: rgba(0,0,0,0.6); padding: 3px; border-radius: 4px; z-index: 5; }
+        .icon-bar.top-left { top: 5px; left: 5px; }
+        .icon-bar.top-right { top: 5px; right: 5px; }
+        .icon-bar.bottom-left { bottom: 55px; left: 5px; }
+        .icon-bar.bottom-right { bottom: 55px; right: 5px; }
+        
+        .icon { font-size: 1.1rem; cursor: pointer; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+        .icon-disabled { opacity: 0.3; pointer-events: none; }
+        .has-theme { color: var(--green); }
+        .missing-theme { color: var(--orange); }
+        .warning-icon { color: #ffc107; }
+        
+        .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.8); }
+        .modal-content { background-color: var(--bg); margin: 5% auto; padding: 20px; border: 1px solid var(--orange); border-radius: 8px; width: 80%; max-width: 700px; }
+        .close { color: #aaa; float: right; font-size: 1.8rem; font-weight: bold; cursor: pointer; }
+        .close:hover { color: white; }
+        .search-result { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 10px; background: var(--card); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; transition: border-color 0.2s; }
+        .search-result:hover { border-color: var(--blue); }
+        .result-info { flex: 1; padding-right: 15px; }
+        
+        #toast { visibility: hidden; min-width: 250px; margin-left: -125px; color: #fff; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 1; left: 50%; bottom: 110px; font-weight: bold; }
+        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+        @keyframes fadein { from {bottom: 100px; opacity: 0;} to {bottom: 110px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 110px; opacity: 1;} to {bottom: 100px; opacity: 0;} }
+
+        .media-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--card); border-top: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; z-index: 90; height: 80px; box-sizing: border-box; }
+        #playing-title { color: var(--orange); font-weight: bold; width: 25%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        #media-container { flex-grow: 1; display: flex; justify-content: center; align-items: center; height: 100%; }
+        #media-container audio { width: 100%; max-width: 600px; }
+        
+        .settings-group { margin-bottom: 20px; }
+        .settings-group h3 { border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+        
+        .path-map-list { margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .path-map-item { display: flex; gap: 10px; align-items: center; padding: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; }
+        .path-label { width: 40px; text-align: center; font-size: 0.8em; font-weight: bold; opacity: 0.8; color: var(--blue); }
+        .path-arrow { opacity: 0.4; font-weight: bold; }
+        .path-map-item input[type="text"] { flex: 1; background: var(--card); border: 1px solid var(--border); color: var(--text); padding: 6px; border-radius: 4px; }
+        .path-map-item input[readonly] { opacity: 0.7; border-style: dashed; }
+        .path-actions { display: flex; gap: 5px; }
+
+        .dir-browser-list { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); margin-top: 10px; }
+        .dir-browser-item { padding: 8px; cursor: pointer; border-bottom: 1px solid var(--border); }
+        .dir-browser-item:hover { background: var(--orange); color: black; }
+
+        .alpha-nav { position: fixed; right: 0; top: 50%; transform: translateY(-50%); background: var(--card); border: 1px solid var(--border); border-right: none; border-radius: 8px 0 0 8px; padding: 10px 5px; display: flex; flex-direction: column; gap: 2px; z-index: 50; }
+        .alpha-nav span { font-size: 0.7rem; cursor: pointer; text-align: center; color: var(--text); opacity: 0.7; }
+        .alpha-nav span:hover { color: var(--orange); opacity: 1; font-weight: bold; }
+        
+        .editor-section { margin-bottom: 20px; padding: 15px; background: var(--card); border-radius: 8px; border: 1px solid var(--border); }
+        .editor-title { font-weight: bold; color: var(--blue); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .art-section { margin-bottom: 20px; }
+        .art-section h3 { color: var(--orange); margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+        .art-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+        .art-card { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 5px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .art-card img { width: 100%; height: 100px; object-fit: contain; background: #000; border-radius: 2px; }
+        .art-info { font-size: 0.8rem; text-align: center; color: var(--text); }
+        .art-btn { background: var(--blue); color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; width: 100%; font-size: 0.8rem; }
+        .art-btn:hover { background: #2980b9; }
+
+        .video-actions { display: flex; gap: 15px; justify-content: center; align-items: center; flex-wrap: wrap; }
+        
+        .cf-rule-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .cf-saved-list { margin-bottom: 15px; max-height: 150px; overflow-y: auto; }
+        .cf-saved-item { display: flex; justify-content: space-between; background: var(--card); padding: 8px; border-radius: 4px; margin-bottom: 5px; align-items: center; }
+        .cf-actions { display: flex; gap: 5px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🎬 Extrarr <span class="version">v1.2.2</span></h1>
+    <div class="controls">
+        <div class="btn-group">
+            <button id="btn-movies" class="btn btn-active" onclick="switchMedia('radarr')">🎬 Radarr</button>
+            <button id="btn-tv" class="btn" onclick="switchMedia('sonarr')">📺 Sonarr</button>
+            <button class="btn" onclick="loadMedia()" title="Aggiorna libreria">🔄</button>
+        </div>
+        
+        <select id="rf-filter" class="select" onchange="renderGrid()">
+            <option value="all">Tutte le Cartele Root</option>
+        </select>
+        
+        <select id="main-filter" class="select" onchange="applyMainFilter()">
+            <option value="all">Tutti i Media</option>
+            <option value="missing_theme">❌ Mancanza Tema</option>
+            <option value="missing_art">❌ Mancanza Artwork</option>
+            <option value="missing_trailer">❌ Mancanza Trailer</option>
+            <option value="complete">✅ Completamente Completi</option>
+            <option value="custom_open">➕ Crea/Modifica Filtri Personalizzati...</option>
+        </select>
+        
+        <select id="sort-select" class="select" onchange="renderGrid()">
+            <option value="title">Ordina: Titolo</option>
+            <option value="year">Ordina: Anno</option>
+            <option value="date_added">Ordina: Data Aggiunta</option>
+        </select>
+        <button class="btn" onclick="toggleSortDir()" id="sort-dir-btn" title="Direzione">⬇</button>
+        
+        <input type="text" id="local-search" class="input-text" placeholder="🔎 Filtra libreria..." onkeyup="renderGrid()">
+        <input type="text" id="global-search" class="input-text" placeholder="Cerca su YouTube..." onkeydown="if(event.key==='Enter') globalSearch()">
+        <button class="btn" onclick="openModal('settingsModal')">⚙️</button>
+    </div>
+    <div id="stats" class="stats">Caricamento statistiche...</div>
+</header>
+
+<div class="grid-header">
+    <div>
+        <span>Risultati visualizzati:</span>
+        <span id="grid-count" class="count-badge">0</span>
+    </div>
+</div>
+
+<div id="grid" class="grid"></div>
+<div id="toast"></div>
+<div class="alpha-nav" id="alpha-nav"></div>
+
+<!-- MODALE FILTRI CUSTOM -->
+<div id="customFilterModal" class="modal">
+    <div class="modal-content" style="max-width: 600px;">
+        <span class="close" onclick="closeModal('customFilterModal')">&times;</span>
+        <h2>Filtri Personalizzati</h2>
+        
+        <div class="settings-group">
+            <h3>Filtri Salvati</h3>
+            <div id="cf-saved-list" class="cf-saved-list">
+                <p style="opacity:0.7; font-size:0.9rem;">Nessun filtro salvato.</p>
+            </div>
+        </div>
+        
+        <div class="settings-group">
+            <h3 id="cf-form-title">Crea Nuovo Filtro</h3>
+            <input type="text" id="cf-name" class="input-text" style="width:100%; margin-bottom:15px;" placeholder="Nome filtro (es. Da Completare)">
+            <div id="cf-rules-container"></div>
+            <button class="btn" style="margin-top:10px;" onclick="addRule()">+ Aggiungi Regola</button>
+        </div>
+        
+        <button id="cf-save-btn" class="btn" style="background:var(--green); color:white; width:100%; font-weight:bold;" onclick="saveCustomFilter()">Salva Filtro</button>
+    </div>
+</div>
+
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('settingsModal')">&times;</span>
+        <h2>Impostazioni Extrarr</h2>
+        <div class="settings-group">
+            <h3>Radarr (Film)</h3>
+            <input type="text" id="radarr-url" class="input-text" style="width:100%; margin-bottom:5px;" placeholder="URL Radarr" onchange="settings.radarr_url = this.value">
+            <input type="text" id="radarr-key" class="input-text" style="width:100%; margin-bottom:5px;" placeholder="API Key Radarr" onchange="settings.radarr_api_key = this.value">
+        </div>
+        <div class="settings-group">
+            <h3>Sonarr (Serie TV)</h3>
+            <input type="text" id="sonarr-url" class="input-text" style="width:100%; margin-bottom:5px;" placeholder="URL Sonarr" onchange="settings.sonarr_url = this.value">
+            <input type="text" id="sonarr-key" class="input-text" style="width:100%; margin-bottom:5px;" placeholder="API Key Sonarr" onchange="settings.sonarr_api_key = this.value">
+        </div>
+        <div class="settings-group">
+            <h3>Fanart.tv (Artwork)</h3>
+            <input type="text" id="fanart-key" class="input-text" style="width:100%; margin-bottom:5px;" placeholder="Fanart.tv API Key" onchange="settings.fanart_api_key = this.value">
+        </div>
+        <div class="settings-group">
+            <h3>TMDB (Artwork Alternativi)</h3>
+            <input type="text" id="tmdb-key" class="input-text" style="width:100%; margin-bottom:5px;" placeholder="TMDB API Key" onchange="settings.tmdb_api_key = this.value">
+        </div>
+        <div class="settings-group">
+            <h3>Mappatura Percorsi</h3>
+            <div id="path-map-list" class="path-map-list"></div>
+            <button class="btn" onclick="addPathMapping()">+ Aggiungi</button>
+        </div>
+        <button class="btn" style="background:var(--orange); color:black; font-weight:bold; width:100%;" onclick="saveSettings()">Salva Impostazioni</button>
+    </div>
+</div>
+
+<div id="browserModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close" onclick="closeModal('browserModal')">&times;</span>
+        <h2>Seleziona Cartella</h2>
+        <div style="display:flex; gap:5px; margin-bottom:10px;">
+            <button class="btn" onclick="browseUp()">⬆ Su</button>
+            <input type="text" id="browser-current" class="input-text" readonly style="flex-grow:1;">
+        </div>
+        <div id="dir-list" class="dir-browser-list"></div>
+        <button class="btn" style="background:var(--green); color:white; margin-top:10px; width:100%;" onclick="selectFolder()">Usa questa cartella</button>
+    </div>
+</div>
+
+<div id="searchModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('searchModal')">&times;</span>
+        <h2 id="modal-title" style="color: var(--orange);"></h2>
+        <div style="margin-bottom: 15px;">
+            <input type="text" id="custom-url-input" class="input-text" style="width: 80%;" placeholder="Incolla link YouTube qui">
+            <button class="btn" style="background:var(--blue); color:white;" onclick="downloadCustomUrl()">Usa Link</button>
+        </div>
+        <div id="modal-body"></div>
+    </div>
+</div>
+
+<div id="editorModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('editorModal')">&times;</span>
+        <h2 id="editor-title" style="color: var(--orange);"></h2>
+        <div id="editor-body"></div>
+    </div>
+</div>
+
+<div id="artworkModal" class="modal">
+    <div class="modal-content" style="max-width: 900px;">
+        <span class="close" onclick="closeModal('artworkModal')">&times;</span>
+        <h2 id="artwork-title" style="color: var(--orange);"></h2>
+        <div id="artwork-modal-body"></div>
+    </div>
+</div>
+
+<div id="videoModal" class="modal">
+    <div class="modal-content" style="max-width: 860px; background: #000;">
+        <span class="close" onclick="closeVideoModal()" style="color: #fff;">&times;</span>
+        <div id="video-container" style="display: flex; justify-content: center; align-items: center; height: 450px; background: #000; margin-top: 10px;"></div>
+        <div id="video-action-bar" style="display: none; text-align: center; padding: 15px; background: #111; border-top: 1px solid #333; margin-top: 10px;">
+            <div id="video-action-content" class="video-actions"></div>
+        </div>
+    </div>
+</div>
+
+<div id="media-bar" class="media-bar">
+    <span id="playing-title">Nessun media selezionato</span>
+    <div id="media-container"></div>
+</div>
+
+<script>
+    let currentMedia = [];
+    let currentMediaType = 'radarr';
+    let settings = { radarr_url: "", radarr_api_key: "", sonarr_url: "", sonarr_api_key: "", fanart_api_key: "", tmdb_api_key: "", path_map: [] };
+    let currentMediaId = null;
+    let sortDir = 'asc';
+    let browserTarget = null;
+    let currentBrowserPath = '/mnt/user/';
+    let activeCustomFilter = null;
+    let editingFilterIndex = null; // NUOVO: Tiene traccia se stiamo modificando un filtro esistente
+    let savedFilters = JSON.parse(localStorage.getItem('extrarr_filters')) || [];
+
+    async function loadSettings() {
+        const res = await fetch('/api/settings');
+        settings = await res.json();
+        if(!settings.path_map) settings.path_map = [];
+        document.getElementById('radarr-url').value = settings.radarr_url || '';
+        document.getElementById('radarr-key').value = settings.radarr_api_key || '';
+        document.getElementById('sonarr-url').value = settings.sonarr_url || '';
+        document.getElementById('sonarr-key').value = settings.sonarr_api_key || '';
+        document.getElementById('fanart-key').value = settings.fanart_api_key || '';
+        document.getElementById('tmdb-key').value = settings.tmdb_api_key || '';
+        renderPathMappings();
+    }
+
+    async function saveSettings() {
+        settings.radarr_url = document.getElementById('radarr-url').value;
+        settings.radarr_api_key = document.getElementById('radarr-key').value;
+        settings.sonarr_url = document.getElementById('sonarr-url').value;
+        settings.sonarr_api_key = document.getElementById('sonarr-key').value;
+        settings.fanart_api_key = document.getElementById('fanart-key').value;
+        settings.tmdb_api_key = document.getElementById('tmdb-key').value;
+        
+        const res = await fetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(settings) });
+        if(res.ok) { closeModal('settingsModal'); showToast("Impostazioni salvate!", false); loadRootFolders(currentMediaType); loadMedia(); }
+        else { showToast("Errore salvataggio", true); }
+    }
+
+    function switchMedia(type) {
+        currentMediaType = type;
+        document.getElementById('btn-movies').classList.toggle('btn-active', type === 'radarr');
+        document.getElementById('btn-tv').classList.toggle('btn-active', type === 'sonarr');
+        loadRootFolders(type);
+        loadMedia();
+    }
+
+    async function loadRootFolders(type) {
+        const res = await fetch(`/api/root_folders/${type}`);
+        const folders = await res.json();
+        const sel = document.getElementById('rf-filter');
+        sel.innerHTML = '<option value="all">Tutte le Cartele Root</option>';
+        folders.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f;
+            opt.innerText = f.split('/').pop();
+            sel.appendChild(opt);
+        });
+    }
+
+    async function loadMedia() {
+        document.getElementById('stats').innerText = "Caricamento in corso...";
+        document.getElementById('grid').innerHTML = '';
+        document.getElementById('grid-count').innerText = '0';
+        try {
+            const res = await fetch(`/api/media/${currentMediaType}`);
+            const data = await res.json();
+            if (data.error) { document.getElementById('stats').innerText = "Errore: " + data.error; return; }
+            currentMedia = data;
+            renderGrid();
+            renderAlphaNav();
+        } catch (e) { document.getElementById('stats').innerText = "Errore di rete."; }
+    }
+
+    function renderAlphaNav() {
+        const nav = document.getElementById('alpha-nav');
+        nav.innerHTML = '';
+        const letters = [...new Set(currentMedia.map(m => m.title[0].toUpperCase()))].sort();
+        letters.forEach(l => {
+            const span = document.createElement('span');
+            span.innerText = l;
+            span.onclick = () => scrollToLetter(l);
+            nav.appendChild(span);
+        });
+    }
+
+    function scrollToLetter(letter) {
+        const cards = document.querySelectorAll('.card');
+        for(let c of cards) {
+            if(c.dataset.title && c.dataset_title.toUpperCase().startsWith(letter)) {
+                c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                break;
+            }
+        }
+    }
+
+    function applyMainFilter() {
+        const val = document.getElementById('main-filter').value;
+        if (val === 'custom_open') {
+            openCustomFilterModal();
+            document.getElementById('main-filter').value = activeCustomFilter ? 'custom_active' : 'all';
+        }
+        renderGrid();
+    }
+
+    function openCustomFilterModal() {
+        editingFilterIndex = null;
+        document.getElementById('cf-form-title').innerText = "Crea Nuovo Filtro";
+        document.getElementById('cf-save-btn').innerText = "Salva Filtro";
+        renderSavedFilters();
+        document.getElementById('cf-rules-container').innerHTML = '';
+        document.getElementById('cf-name').value = '';
+        addRule();
+        openModal('customFilterModal');
+    }
+
+    function addRule(type = 'has_theme', val = 'false') {
+        const container = document.getElementById('cf-rules-container');
+        const div = document.createElement('div');
+        div.className = 'cf-rule-row';
+        div.innerHTML = `
+            <select class="select cf-type">
+                <option value="has_theme" ${type==='has_theme'?'selected':''}>Tema</option>
+                <option value="has_artwork" ${type==='has_artwork'?'selected':''}>Artwork</option>
+                <option value="has_trailer" ${type==='has_trailer'?'selected':''}>Trailer</option>
+            </select>
+            <span>è</span>
+            <select class="select cf-val">
+                <option value="true" ${val==='true'?'selected':''}>Presente</option>
+                <option value="false" ${val==='false'?'selected':''}>Mancante</option>
+            </select>
+            <button class="btn" style="background:var(--red); color:white;" onclick="this.parentNode.remove()">X</button>
+        `;
+        container.appendChild(div);
+    }
+
+    // NUOVA FUNZIONE: Salva o Aggiorna
+    function saveCustomFilter() {
+        const name = document.getElementById('cf-name').value.trim();
+        if (!name) { showToast("Inserisci un nome per il filtro", true); return; }
+        
+        const rules = [];
+        document.querySelectorAll('#cf-rules-container .cf-rule-row').forEach(row => {
+            rules.push({
+                type: row.querySelector('.cf-type').value,
+                val: row.querySelector('.cf-val').value
+            });
+        });
+
+        if (rules.length === 0) { showToast("Aggiungi almeno una regola", true); return; }
+
+        const filter = { name: name, rules: rules };
+        
+        if (editingFilterIndex !== null) {
+            // Siamo in modalità modifica
+            savedFilters[editingFilterIndex] = filter;
+            showToast("Filtro aggiornato!", false);
+        } else {
+            // Siamo in modalità creazione
+            savedFilters.push(filter);
+            showToast("Nuovo filtro salvato!", false);
+        }
+        
+        localStorage.setItem('extrarr_filters', JSON.stringify(savedFilters));
+        
+        activeCustomFilter = filter;
+        editingFilterIndex = null;
+        closeModal('customFilterModal');
+        updateFilterDropdown();
+        document.getElementById('main-filter').value = 'custom_active';
+        renderGrid();
+    }
+
+    function renderSavedFilters() {
+        const list = document.getElementById('cf-saved-list');
+        if (savedFilters.length === 0) {
+            list.innerHTML = '<p style="opacity:0.7; font-size:0.9rem;">Nessun filtro salvato.</p>';
+            return;
+        }
+        list.innerHTML = '';
+        savedFilters.forEach((f, index) => {
+            const div = document.createElement('div');
+            div.className = 'cf-saved-item';
+            div.innerHTML = `
+                <span>${f.name}</span>
+                <div class="cf-actions">
+                    <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" onclick="applySavedFilter(${index})">Applica</button>
+                    <button class="btn" style="padding: 2px 8px; font-size: 0.8rem;" onclick="editSavedFilter(${index})">✏️ Modifica</button>
+                    <button class="btn" style="background:var(--red); color:white; padding: 2px 8px; font-size: 0.8rem;" onclick="deleteSavedFilter(${index})">🗑️</button>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    }
+
+    // NUOVA FUNZIONE: Carica filtro per modificarlo
+    function editSavedFilter(index) {
+        const filter = savedFilters[index];
+        editingFilterIndex = index;
+        
+        document.getElementById('cf-form-title').innerText = "Modifica Filtro";
+        document.getElementById('cf-save-btn').innerText = "Aggiorna Filtro";
+        document.getElementById('cf-name').value = filter.name;
+        
+        const container = document.getElementById('cf-rules-container');
+        container.innerHTML = '';
+        filter.rules.forEach(rule => addRule(rule.type, rule.val));
+        
+        document.getElementById('customFilterModal').scrollTop = 0;
+    }
+
+    function applySavedFilter(index) {
+        activeCustomFilter = savedFilters[index];
+        closeModal('customFilterModal');
+        updateFilterDropdown();
+        document.getElementById('main-filter').value = 'custom_active';
+        renderGrid();
+    }
+
+    function deleteSavedFilter(index) {
+        savedFilters.splice(index, 1);
+        localStorage.setItem('extrarr_filters', JSON.stringify(savedFilters));
+        renderSavedFilters();
+        if (activeCustomFilter && !savedFilters.includes(activeCustomFilter)) {
+            activeCustomFilter = null;
+            document.getElementById('main-filter').value = 'all';
+            renderGrid();
+        }
+        updateFilterDropdown();
+    }
+
+    function updateFilterDropdown() {
+        const sel = document.getElementById('main-filter');
+        [...sel.options].forEach(o => { if(o.value.startsWith('custom_')) sel.remove(o.index); });
+        
+        if (activeCustomFilter) {
+            const opt = new Option("Custom: " + activeCustomFilter.name, "custom_active");
+            sel.add(opt);
+            sel.value = 'custom_active';
+        }
+    }
+
+    function checkCustomFilter(media) {
+        if (!activeCustomFilter) return true;
+        return activeCustomFilter.rules.every(rule => {
+            const mediaVal = media[rule.type];
+            const expectedVal = rule.val === 'true';
+            return mediaVal === expectedVal;
+        });
+    }
+
+    function renderGrid() {
+        const grid = document.getElementById('grid');
+        grid.innerHTML = '';
+        
+        let tH=0, tM=0, aH=0, aM=0, trH=0, trM=0;
+        currentMedia.forEach(m => {
+            if(m.is_mapped && m.folder_exists) {
+                m.has_theme ? tH++ : tM++;
+                m.has_artwork ? aH++ : aM++;
+                m.has_trailer ? trH++ : trM++;
+            }
+        });
+        const validCount = currentMedia.filter(m => m.is_mapped && m.folder_exists).length;
+        document.getElementById('stats').innerText = `🎵 Tema: ${tH}/${validCount} | 🖼️ Artwork: ${aH}/${validCount} | 🎬 Trailer: ${trH}/${validCount} (Valide: ${validCount}/${currentMedia.length})`;
+
+        const searchQuery = document.getElementById('local-search').value.toLowerCase();
+        const rfFilter = document.getElementById('rf-filter').value;
+        const mainFilter = document.getElementById('main-filter').value;
+        
+        let filtered = currentMedia.filter(m => {
+            if(searchQuery && !m.title.toLowerCase().includes(searchQuery)) return false;
+            if (rfFilter !== 'all' && !m.root_folder.startsWith(rfFilter)) return false;
+            if (!m.is_mapped || !m.folder_exists) return false; 
+            
+            if (mainFilter === 'missing_theme' && m.has_theme) return false;
+            if (mainFilter === 'missing_art' && m.has_artwork) return false;
+            if (mainFilter === 'missing_trailer' && m.has_trailer) return false;
+            if (mainFilter === 'complete' && (!m.has_theme || !m.has_artwork || !m.has_trailer)) return false;
+            if (mainFilter === 'custom_active' && !checkCustomFilter(m)) return false;
+            
+            return true;
+        });
+
+        if (mainFilter === 'all' && (rfFilter === 'all' || currentMedia.some(m => (!m.is_mapped || !m.folder_exists) && m.root_folder.startsWith(rfFilter)))) {
+            currentMedia.forEach(m => {
+                if ((!m.is_mapped || !m.folder_exists) && !filtered.includes(m) && (rfFilter === 'all' || m.root_folder.startsWith(rfFilter)) && (!searchQuery || m.title.toLowerCase().includes(searchQuery))) {
+                    filtered.push(m);
+                }
+            });
+        }
+
+        const sortVal = document.getElementById('sort-select').value;
+        filtered.sort((a, b) => {
+            if(sortVal === 'title') return a.title.localeCompare(b.title);
+            if(sortVal === 'year') return (b.year || 0) - (a.year || 0);
+            if(sortVal === 'date_added') return new Date(b.date_added || '1970-01-01') - new Date(a.date_added || '1970-01-01');
+        });
+        if(sortDir === 'asc') filtered.reverse();
+
+        document.getElementById('grid-count').innerText = filtered.length;
+
+        filtered.forEach(m => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.id = `card-${m.id}`;
+            card.dataset.title = m.title;
+            
+            let iconsHtml = '';
+            
+            if (!m.is_mapped) {
+                iconsHtml = `<div class="icon-bar top-left"><div class="icon warning-icon" onclick="showMapWarning('${m.local_path}')" title="Percorso non mappato!">⚠️</div></div>`;
+            } else if (!m.folder_exists) {
+                iconsHtml = `<div class="icon-bar top-left"><div class="icon warning-icon" onclick="showFolderWarning('${m.local_path}')" title="Cartella non trovata sul disco!">⚠️</div></div>`;
+            } else {
+                const statusClass = m.has_theme ? 'has-theme' : 'missing-theme';
+                const statusIcon = m.has_theme ? '✔️' : '⬇️';
+                const playBtnClass = m.has_theme ? '' : 'icon-disabled';
+                const trailerClass = m.has_trailer ? '' : 'icon-disabled';
+                
+                iconsHtml = `
+                    <div class="icon-bar top-left"><div class="icon" onclick="openEditor(${m.id})">🔧</div></div>
+                    <div class="icon-bar top-right"><div class="icon ${statusClass}" onclick="quickDownload(${m.id}, this)">${statusIcon}</div></div>
+                    <div class="icon-bar bottom-left">
+                        <div class="icon ${playBtnClass}" onclick="playTheme(${m.id}, '${m.title.replace(/'/g, "\\'")}')">🎵</div>
+                        <div class="icon" onclick="viewArtwork(${m.id}, '${m.title.replace(/'/g, "\\'")}')">👁️</div>
+                        <div class="icon ${trailerClass}" onclick="playTrailer(${m.id}, '${m.title.replace(/'/g, "\\'")}')">🎬</div>
+                    </div>
+                    <div class="icon-bar bottom-right"><div class="icon" onclick="downloadArtwork(${m.id}, this)">🖼️</div></div>
+                `;
+            }
+            
+            card.innerHTML = `
+                ${iconsHtml}
+                <img src="${m.poster}" onerror="this.src='https://via.placeholder.com/150x225/2b2b2b/ff8c1f?text=N/A'">
+                <div class="card-body"><div class="title">${m.title}</div><div class="year">${m.year}</div></div>`;
+            grid.appendChild(card);
+        });
+    }
+
+    function showMapWarning(path) {
+        showToast(`Attenzione: Percorso non mappato! Vai su ⚙️ Impostazioni. Percorso: ${path}`, true);
+    }
+    
+    function showFolderWarning(path) {
+        showToast(`Errore: La cartella non esiste sul disco! Percorso calcolato: ${path}`, true);
+    }
+
+    function toggleSortDir() {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        document.getElementById('sort-dir-btn').innerText = sortDir === 'asc' ? '⬆' : '⬇';
+        renderGrid();
+    }
+
+    async function quickDownload(id, el) {
+        el.innerText = '⏳';
+        try {
+            const res = await fetch(`/api/download_media/${currentMediaType}/${id}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) });
+            const data = await res.json();
+            if(data.status === 'success') { loadMedia(); showToast(data.message, false); }
+            else { el.innerText = '⬇️'; showToast(data.message, true); }
+        } catch(e) { el.innerText = '⬇️'; showToast("Errore di rete", true); }
+    }
+
+    async function downloadArtwork(id, el) {
+        el.innerText = '⏳';
+        try {
+            const res = await fetch(`/api/download_artwork/${currentMediaType}/${id}`, { method: 'POST' });
+            const data = await res.json();
+            el.innerText = '🖼️';
+            showToast(data.message, data.status !== 'success');
+            if(data.status === 'success') loadMedia();
+        } catch(e) { el.innerText = '🖼️'; showToast("Errore di rete", true); }
+    }
+
+    async function viewArtwork(id, title) {
+        currentMediaId = id; 
+        document.getElementById('artwork-title').innerText = `Gestione Artwork: ${title}`;
+        document.getElementById('artwork-modal-body').innerHTML = '<p>Caricamento anteprime...</p>';
+        openModal('artworkModal');
+        
+        try {
+            const resLocal = await fetch(`/api/artwork_files/${currentMediaType}/${id}`);
+            const localFiles = await resLocal.json();
+            const resOnline = await fetch(`/api/search_artwork_online/${currentMediaType}/${id}`);
+            const onlineArts = await resOnline.json();
+            const resTmdb = await fetch(`/api/search_tmdb_artwork/${currentMediaType}/${id}`);
+            const tmdbArts = await resTmdb.json();
+            
+            let html = '';
+            
+            html += '<div class="art-section"><h3>🖼️ Artwork Locali</h3>';
+            if(localFiles.length === 0) html += '<p>Nessuna immagine locale trovata.</p>';
+            html += '<div class="art-grid">';
+            localFiles.forEach(f => {
+                html += `<div class="art-card">
+                    <img src="/api/artwork_image/${currentMediaType}/${id}/${f}" alt="${f}">
+                    <div class="art-info">${f}</div>
+                </div>`;
+            });
+            html += '</div></div>';
+            
+            html += '<div class="art-section"><h3>🌐 Artwork Online (Fanart.tv)</h3>';
+            if(onlineArts.status === 'error') {
+                html += `<p style="color:var(--red);">${onlineArts.message}</p>`;
+            } else if(onlineArts.length === 0) {
+                html += '<p>Nessuna immagine trovata su Fanart.tv.</p>';
+            } else {
+                html += '<div class="art-grid">';
+                onlineArts.forEach(art => {
+                    html += `<div class="art-card">
+                        <img src="${art.url}" alt="${art.our_type}">
+                        <div class="art-info">
+                            Tipo: ${art.our_type}<br>
+                            Lingua: ${art.lang} | Likes: ${art.likes}
+                        </div>
+                        <button class="art-btn" onclick="downloadSpecificArtwork('${art.url}', '${art.our_type}', '${art.ext}', this)">⬇️ Scarica/Sostituisci</button>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+            
+            html += '<div class="art-section"><h3>🎬 Artwork Online (TMDB)</h3>';
+            if(tmdbArts.status === 'error') {
+                html += `<p style="color:var(--red);">${tmdbArts.message}</p>`;
+            } else if(tmdbArts.length === 0) {
+                html += '<p>Nessuna immagine trovata su TMDB.</p>';
+            } else {
+                html += '<div class="art-grid">';
+                tmdbArts.forEach(art => {
+                    html += `<div class="art-card">
+                        <img src="${art.url}" alt="${art.our_type}">
+                        <div class="art-info">
+                            Tipo: ${art.our_type}<br>
+                            Lingua: ${art.lang} | Voto: ${art.likes}
+                        </div>
+                        <button class="art-btn" onclick="downloadSpecificArtwork('${art.url}', '${art.our_type}', '${art.ext}', this)">⬇️ Scarica/Sostituisci</button>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+            html += '</div>';
+            
+            document.getElementById('artwork-modal-body').innerHTML = html;
+            
+        } catch (e) {
+            document.getElementById('artwork-modal-body').innerHTML = '<p style="color:var(--red);">Errore di rete.</p>';
+        }
+    }
+
+    async function downloadSpecificArtwork(url, our_type, ext, el) {
+        const originalText = el.innerText;
+        el.innerText = '⏳...';
+        try {
+            const res = await fetch(`/api/download_specific_artwork/${currentMediaType}/${currentMediaId}`, {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({url: url, our_type: our_type, ext: ext})
+            });
+            const data = await res.json();
+            if(data.status === 'success') {
+                showToast(data.message, false);
+                viewArtwork(currentMediaId, document.getElementById('artwork-title').innerText.replace('Gestione Artwork: ', ''));
+                loadMedia(); 
+            } else {
+                showToast(data.message, true);
+                el.innerText = originalText;
+            }
+        } catch(e) {
+            showToast("Errore di rete", true);
+            el.innerText = originalText;
+        }
+    }
+
+    function openEditor(id) {
+        const movie = currentMedia.find(m => m.id === id);
+        currentMediaId = id;
+        document.getElementById('editor-title').innerText = `Editor: ${movie.title}`;
+        const themeStatus = movie.has_theme ? "✅ Presente" : "❌ Mancante";
+        document.getElementById('editor-body').innerHTML = `
+            <div class="editor-section">
+                <div class="editor-title">🎵 Tema Musicale <span style="font-size:0.8rem; font-weight:normal; opacity:0.7;">(${themeStatus})</span></div>
+                <button class="btn" style="background:var(--blue); color:white; width:100%; margin-bottom:10px;" onclick="editorSearch('theme')">🔍 Cerca Tema su YouTube</button>
+                <div style="display:flex; gap:5px;">
+                    <input type="text" id="editor-theme-url" class="input-text" style="flex-grow:1;" placeholder="Incolla link YouTube tema">
+                    <button class="btn" style="background:var(--green); color:white;" onclick="editorDownloadThemeUrl(document.getElementById('editor-theme-url').value)">⬇️</button>
+                </div>
+            </div>
+            <div class="editor-section">
+                <div class="editor-title">🎬 Trailer (NFO)</div>
+                <button class="btn" style="background:var(--blue); color:white; width:100%; margin-bottom:10px;" onclick="editorSearch('trailer')">🔍 Cerca Trailer su YouTube</button>
+                <div style="display:flex; gap:5px;">
+                    <input type="text" id="editor-trailer-url" class="input-text" style="flex-grow:1;" placeholder="Incolla link YouTube trailer">
+                    <button class="btn" style="background:var(--green); color:white;" onclick="editorSetTrailerUrl(document.getElementById('editor-trailer-url').value)">Salva NFO</button>
+                </div>
+            </div>
+            <div id="editor-search-results" style="margin-top:15px;"></div>
+        `;
+        openModal('editorModal');
+    }
+
+    async function editorSearch(type) {
+        document.getElementById('editor-search-results').innerHTML = '<p>Ricerca in corso...</p>';
+        const res = await fetch(`/api/search_media/${currentMediaType}/${currentMediaId}/${type}`);
+        const videos = await res.json();
+        let html = `<h3 style="font-size:0.9rem; margin-bottom:10px;">Risultati ${type}:</h3>`;
+        if(videos.length === 0) html += '<p>Nessun risultato.</p>';
+        
+        videos.forEach(v => {
+            html += `<div class="search-result" onclick="previewSearchResult('${v.video_id}', '${v.url}', 'editor_${type}')">
+                        <div class="result-info">
+                            <b>${v.title}</b><br>
+                            <span style="font-size:0.8rem; color:var(--blue);">▶️ Clicca per vedere l'anteprima</span>
+                        </div>
+                     </div>`;
+        });
+        document.getElementById('editor-search-results').innerHTML = html;
+    }
+
+    function previewSearchResult(videoId, videoUrl, type, contextData) {
+        const container = document.getElementById('video-container');
+        container.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+        
+        const actionBar = document.getElementById('video-action-bar');
+        const actionContent = document.getElementById('video-action-content');
+        actionBar.style.display = 'block';
+        
+        if (type === 'editor_theme') {
+            actionContent.innerHTML = `<button class="btn" style="background:var(--green); color:white; font-weight:bold; padding: 10px 20px;" onclick="editorDownloadThemeUrl('${videoUrl}'); closeVideoModal();">⬇️ Usa come Tema Musicale</button>`;
+        } else if (type === 'editor_trailer') {
+            actionContent.innerHTML = `<button class="btn" style="background:var(--green); color:white; font-weight:bold; padding: 10px 20px;" onclick="editorSetTrailerUrl('${videoUrl}'); closeVideoModal();">⬇️ Usa come Trailer</button>`;
+        } else if (type === 'card') {
+            actionContent.innerHTML = `<button class="btn" style="background:var(--green); color:white; font-weight:bold; padding: 10px 20px;" onclick="downloadSpecific(${contextData}, '${videoUrl}'); closeVideoModal();">⬇️ Scarica questo Tema</button>`;
+        } else if (type === 'global') {
+            let opts = `<option value="">-- Seleziona un film --</option>`;
+            currentMedia.forEach(m => {
+                opts += `<option value="${m.id}">${m.title} (${m.year})</option>`;
+            });
+            actionContent.innerHTML = `
+                <select class="select" id="global-sel-${videoId}" style="width: 60%; margin-bottom: 10px;" onchange="toggleGlobalButtons('${videoId}')">${opts}</select><br>
+                <button class="btn" id="btn-theme-${videoId}" style="background:var(--green); color:white; font-weight:bold; padding: 10px 20px; margin-right: 10px; opacity: 0.5; pointer-events: none;" onclick="assignAndDownloadGlobal('${videoUrl}', '${videoId}'); closeVideoModal();">⬇️ Scarica come Tema</button>
+                <button class="btn" id="btn-trailer-${videoId}" style="background:var(--blue); color:white; font-weight:bold; padding: 10px 20px; opacity: 0.5; pointer-events: none;" onclick="assignAndSetTrailerGlobal('${videoUrl}', '${videoId}'); closeVideoModal();">🎬 Usa come Trailer</button>
+            `;
+        }
+        
+        openModal('videoModal');
+    }
+
+    function toggleGlobalButtons(videoId) {
+        const sel = document.getElementById(`global-sel-${videoId}`);
+        const btnT = document.getElementById(`btn-theme-${videoId}`);
+        const btnTr = document.getElementById(`btn-trailer-${videoId}`);
+        if (sel.value) {
+            btnT.style.opacity = '1'; btnT.style.pointerEvents = 'auto';
+            btnTr.style.opacity = '1'; btnTr.style.pointerEvents = 'auto';
+        } else {
+            btnT.style.opacity = '0.5'; btnT.style.pointerEvents = 'none';
+            btnTr.style.opacity = '0.5'; btnTr.style.pointerEvents = 'none';
+        }
+    }
+
+    async function editorDownloadThemeUrl(url) {
+        if(!url) return;
+        document.getElementById('editor-search-results').innerHTML = '<p>Download tema in corso...</p>';
+        const res = await fetch(`/api/download_media/${currentMediaType}/${currentMediaId}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({url}) });
+        const data = await res.json();
+        if(data.status === 'success') {
+            const movie = currentMedia.find(m => m.id === currentMediaId);
+            movie.has_theme = true;
+            closeModal('editorModal');
+            showToast(data.message, false);
+            renderGrid();
+        } else {
+            document.getElementById('editor-search-results').innerHTML = `<p style="color:red;">Errore: ${data.message}</p>`;
+        }
+    }
+
+    async function editorSetTrailerUrl(url) {
+        if(!url) return;
+        document.getElementById('editor-search-results').innerHTML = '<p>Salvataggio trailer nel file NFO...</p>';
+        const res = await fetch(`/api/set_trailer/${currentMediaType}/${currentMediaId}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({url}) });
+        const data = await res.json();
+        if(data.status === 'success') {
+            showToast(data.message, false);
+            const movie = currentMedia.find(m => m.id === currentMediaId);
+            movie.has_trailer = true;
+            renderGrid();
+            closeModal('editorModal');
+        } else {
+            document.getElementById('editor-search-results').innerHTML = `<p style="color:red;">Errore: ${data.message}</p>`;
+        }
+    }
+
+    async function openSearch(id) {
+        const movie = currentMedia.find(m => m.id === id);
+        document.getElementById('modal-title').innerText = `Cerca Tema: ${movie.title}`;
+        document.getElementById('custom-url-input').value = '';
+        document.getElementById('modal-body').innerHTML = '<p>Ricerca in corso...</p>';
+        openModal('searchModal');
+        const res = await fetch(`/api/search_media/${currentMediaType}/${id}/theme`);
+        const videos = await res.json();
+        let html = videos.length === 0 ? '<p>Nessun risultato.</p>' : '';
+        videos.forEach(v => {
+            html += `<div class="search-result" onclick="previewSearchResult('${v.video_id}', '${v.url}', 'card', ${id})">
+                        <div class="result-info">
+                            <b>${v.title}</b><br>
+                            <span style="font-size:0.8rem; color:var(--blue);">▶️ Clicca per vedere l'anteprima</span>
+                        </div>
+                     </div>`;
+        });
+        document.getElementById('modal-body').innerHTML = html;
+    }
+
+    async function downloadCustomUrl() {
+        const url = document.getElementById('custom-url-input').value;
+        if(!url) return;
+        downloadSpecific(currentMediaId, url);
+    }
+
+    async function downloadSpecific(id, url) {
+        document.getElementById('modal-body').innerHTML = '<p>Download in corso...</p>';
+        const res = await fetch(`/api/download_media/${currentMediaType}/${id}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({url}) });
+        const data = await res.json();
+        if(data.status === 'success') { closeModal('searchModal'); loadMedia(); showToast(data.message, false); }
+        else { document.getElementById('modal-body').innerHTML = `<p style="color:red;">Errore: ${data.message}</p>`; }
+    }
+
+    async function globalSearch() {
+        const q = document.getElementById('global-search').value;
+        if(!q) return;
+        document.getElementById('modal-body').innerHTML = '<p>Ricerca in corso...</p>';
+        openModal('searchModal');
+        document.getElementById('modal-title').innerText = `Risultati per: ${q}`;
+        const res = await fetch('/api/search_youtube', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({query: q}) });
+        const videos = await res.json();
+        let html = videos.length === 0 ? '<p>Nessun risultato.</p>' : '';
+        videos.forEach(v => {
+            html += `<div class="search-result" onclick="previewSearchResult('${v.video_id}', '${v.url}', 'global')">
+                        <div class="result-info">
+                            <b>${v.title}</b><br>
+                            <span style="font-size:0.8rem; color:var(--blue);">▶️ Clicca per vedere l'anteprima e scegliere il film</span>
+                        </div>
+                     </div>`;
+        });
+        document.getElementById('modal-body').innerHTML = html;
+    }
+
+    async function assignAndDownloadGlobal(url, vid) {
+        const id = document.getElementById(`global-sel-${vid}`).value;
+        if(!id) return;
+        document.getElementById('modal-body').innerHTML = '<p>Download in corso...</p>';
+        const res = await fetch(`/api/download_media/${currentMediaType}/${id}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({url}) });
+        const data = await res.json();
+        if(data.status === 'success') { closeModal('searchModal'); loadMedia(); showToast(data.message, false); }
+        else { document.getElementById('modal-body').innerHTML = `<p style="color:red;">Errore: ${data.message}</p>`; }
+    }
+
+    async function assignAndSetTrailerGlobal(url, vid) {
+        const id = document.getElementById(`global-sel-${vid}`).value;
+        if(!id) return;
+        document.getElementById('modal-body').innerHTML = '<p>Salvataggio trailer nel file NFO...</p>';
+        openModal('searchModal');
+        try {
+            const res = await fetch(`/api/set_trailer/${currentMediaType}/${id}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({url}) });
+            const data = await res.json();
+            if(data.status === 'success') { 
+                closeModal('searchModal'); 
+                showToast(data.message, false); 
+                const movie = currentMedia.find(m => m.id == id);
+                if(movie) {
+                    movie.has_trailer = true;
+                    renderGrid();
+                }
+            }
+            else { document.getElementById('modal-body').innerHTML = `<p style="color:red;">Errore: ${data.message}</p>`; }
+        } catch(e) {
+            document.getElementById('modal-body').innerHTML = `<p style="color:red;">Errore di rete</p>`;
+        }
+    }
+
+    function playTheme(id, title) {
+        document.getElementById('playing-title').innerText = `🎵 ${title}`;
+        const container = document.getElementById('media-container');
+        container.innerHTML = `<audio id="audio-player" controls style="width: 100%;"></audio>`;
+        const p = document.getElementById('audio-player');
+        p.src = `/api/audio_media/${currentMediaType}/${id}?t=${new Date().getTime()}`;
+        p.play().catch(e => { showToast("Errore riproduzione audio", true); });
+    }
+
+    async function playTrailer(id, title) {
+        document.getElementById('video-action-bar').style.display = 'none'; 
+        document.getElementById('video-container').innerHTML = `<p style="color: var(--text); font-size: 1.2rem;">Caricamento trailer di "${title}"...</p>`;
+        openModal('videoModal');
+        try {
+            const res = await fetch(`/api/get_trailer/${currentMediaType}/${id}`);
+            const data = await res.json();
+            if (data.status === 'success' && data.video_id) {
+                document.getElementById('video-container').innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${data.video_id}?autoplay=1&rel=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+            } else {
+                document.getElementById('video-container').innerHTML = `<p style="color: var(--red); font-size: 1.2rem; text-align:center;">${data.message}<br><small>Imposta il trailer usando l'editor (🔧).</small></p>`;
+            }
+        } catch (e) {
+            document.getElementById('video-container').innerHTML = `<p style="color: var(--red); font-size: 1.2rem; text-align:center;">Errore di rete</p>`;
+        }
+    }
+
+    function closeVideoModal() {
+        document.getElementById('videoModal').style.display = 'none';
+        document.getElementById('video-container').innerHTML = '';
+        document.getElementById('video-action-bar').style.display = 'none';
+    }
+
+    async function openBrowser(index) {
+        browserTarget = index;
+        currentBrowserPath = settings.path_map[index].local || '/mnt/user/';
+        await fetchDirs(currentBrowserPath);
+        openModal('browserModal');
+    }
+    async function fetchDirs(path) {
+        const res = await fetch('/api/browse_dirs', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path}) });
+        const data = await res.json();
+        currentBrowserPath = data.current;
+        document.getElementById('browser-current').value = currentBrowserPath;
+        const list = document.getElementById('dir-list');
+        list.innerHTML = '';
+        data.dirs.forEach(d => {
+            const item = document.createElement('div');
+            item.className = 'dir-browser-item';
+            item.innerText = `📁 ${d.name}`;
+            item.onclick = () => fetchDirs(d.path);
+            list.appendChild(item);
+        });
+    }
+    function browseUp() {
+        const parts = currentBrowserPath.split('/').filter(p => p);
+        parts.pop();
+        fetchDirs('/' + parts.join('/'));
+    }
+    function selectFolder() {
+        if(browserTarget !== null) {
+            settings.path_map[browserTarget].local = currentBrowserPath;
+            renderPathMappings();
+        }
+        closeModal('browserModal');
+    }
+    function renderPathMappings() {
+        const list = document.getElementById('path-map-list');
+        list.innerHTML = '';
+        settings.path_map.forEach((map, index) => {
+            const div = document.createElement('div');
+            div.className = 'path-map-item';
+            div.innerHTML = `
+                <div class="path-label">..arr</div>
+                <input type="text" placeholder="/movies" value="${map.docker || ''}" onchange="updatePathMapping(${index}, 'docker', this.value)">
+                <span class="path-arrow">-></span>
+                <div class="path-label">host</div>
+                <input type="text" value="${map.local || 'Non mappato'}" readonly>
+                <div class="path-actions">
+                    <button class="btn" onclick="openBrowser(${index})">Sfoglia</button>
+                    <button class="btn" style="background:var(--red); color:white;" onclick="removePathMapping(${index})">X</button>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    }
+    function addPathMapping() { settings.path_map.push({docker: "", local: ""}); renderPathMappings(); }
+    function removePathMapping(index) { settings.path_map.splice(index, 1); renderPathMappings(); }
+    function updatePathMapping(index, key, value) { settings.path_map[index][key] = value; }
+
+    function openModal(id) { document.getElementById(id).style.display = 'block'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+    function showToast(msg, isErr) {
+        const t = document.getElementById('toast');
+        t.innerText = msg; t.style.backgroundColor = isErr ? 'var(--red)' : 'var(--green)';
+        t.className = 'show'; setTimeout(() => t.className = '', 5000);
+    }
+
+    // INIT
+    loadSettings();
+    loadRootFolders(currentMediaType);
+    loadMedia();
+</script>
+</body>
+</html>
