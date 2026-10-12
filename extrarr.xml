@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<Container>
+  <Name>Extrarr</Name>
+  <Repository>amonaudio/extrarr:latest</Repository>
+  <Registry>https://hub.docker.com/r/amonaudio/extrarr</Registry>
+  <Network>bridge</Network>
+  <MyIP></MyIP>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/amonaudio/extrarr-unraid/issues</Support>
+  <Project>https://github.com/amonaudio/extrarr-unraid</Project>
+  <Overview>Extrarr - Il tuo Media Center per la gestione di Temi Musicali, Artwork (Fanart.tv/TMDB) e Trailer. Si interfaccia con Radarr e Sonarr.</Overview>
+  <Category>MediaApp:Video MediaApp:Music</Category>
+  <WebUI>http://[IP]:[PORT:5000]</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/amonaudio/extrarr-unraid/main/extrarr.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/linuxserver/docker-templates/master/linuxserver.io/img/plex-logo.png</Icon>
+  <Config Name="WebUI Port" Target="5000" Default="5000" Mode="tcp" Description="Porta per l'interfaccia Web" Type="Port" Display="always" Required="true" Mask="false">5000</Config>
+  <Config Name="Appdata" Target="/config" Default="/mnt/user/appdata/extrarr" Mode="rw" Description="Cartella di configurazione" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/extrarr</Config>
+  <Config Name="Unraid Media Share" Target="/mnt/user" Default="/mnt/user" Mode="rw" Description="Cartella principale media di Unraid" Type="Path" Display="always" Required="true" Mask="false">/mnt/user</Config>
+  <Version>1.2.2</Version>
+</Container>
